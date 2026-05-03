@@ -29,7 +29,7 @@
       overflow: hidden;
     }
     /* ─── Login ─── */
-    #login‑screen {
+    #loginScreen {
       padding: 32px 24px;
       display: flex;
       flex-direction: column;
@@ -37,7 +37,7 @@
       min-height: 400px;
       justify-content: center;
     }
-    #login‑screen h2 {
+    #loginScreen h2 {
       text-align: center;
       font-weight: 700;
       color: #1a1a2e;
@@ -92,7 +92,7 @@
       text-align: center;
     }
     /* ─── Dashboard ─── */
-    #dashboard {
+    #dashboardScreen {
       display: none;
       padding: 24px 20px 100px;
     }
@@ -285,7 +285,7 @@
 
 <div class="app‑container">
   <!-- TELA DE LOGIN -->
-  <div id="login‑screen">
+  <div id="loginScreen">
     <h2>💰 Minha Carteira</h2>
     <div class="form‑group">
       <label>E‑mail</label>
@@ -302,7 +302,7 @@
   </div>
 
   <!-- DASHBOARD -->
-  <div id="dashboard">
+  <div id="dashboardScreen">
     <div class="header">
       <div>
         <h1>Minha Carteira</h1>
@@ -370,7 +370,7 @@
 const SUPABASE_URL = "https://zdhzifmfycldgolqfamw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkaHppZm1meWNsZGdvbHFmYW13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MjMzMjUsImV4cCI6MjA5MzM5OTMyNX0.khGI5Jzfcq6TPeZH5G9U4667mF9rUePOHUwjfXfcfDs";
 
-// ✅ Criamos o cliente com nome explícito, sem risco de confusão
+// ✅ Cliente Supabase com nome explícito
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ═══ Variáveis globais ═══
@@ -397,14 +397,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // ═══ Tela de Login ═══
 function showLogin() {
-  document.getElementById('login-screen').style.display = 'flex';
-  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('dashboardScreen').style.display = 'none';
   document.querySelector('.fab').style.display = 'none';
 }
 
 function showDashboard(user) {
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboardScreen').style.display = 'block';
   document.querySelector('.fab').style.display = 'flex';
   document.getElementById('user-email').textContent = user.email;
   loadDashboard();
