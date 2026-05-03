@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="pt‑BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Minha Carteira | Controle Financeiro</title>
+  <!-- Fontes e ícones (Material Icons) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+  <!-- Supabase SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: #f5f7fa;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+      padding: 16px;
+    }
+    .app‑container {
+      width: 100%;
+      max-width: 480px;
+      background: white;
+      border-radius: 28px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+      overflow: hidden;
+    }
+    /* ─── Login ─── */
+    #login‑screen {
+      padding: 32px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      min-height: 400px;
+      justify-content: center;
+    }
+    #login‑screen h2 {
+      text-align: center;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .form‑group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .form‑group label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #4a4a6a;
+    }
+    .form‑group input {
+      padding: 14px 16px;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
+      font-size: 16px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .form‑group input:focus {
+      border-color: #6c63ff;
+    }
+    .btn {
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      font-weight: 700;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-align: center;
+    }
+    .btn‑primary {
+      background: #6c63ff;
+      color: white;
+    }
+    .btn‑primary:active {
+      background: #5a52d5;
+    }
+    .btn‑outline {
+      background: transparent;
+      border: 2px solid #6c63ff;
+      color: #6c63ff;
+      margin-top: 8px;
+    }
+    .error‑msg {
+      color: #e53e3e;
+      font-size: 14px;
+      text-align: center;
+    }
+    /* ─── Dashboard ─── */
+    #dashboard {
+      display: none;
+      padding: 24px 20px 100px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .header .user‑email {
+      font-size: 12px;
+      color: #888;
+    }
+    .balance‑card {
+      background: linear-gradient(135deg, #6c63ff, #4a40c9);
+      color: white;
+      border-radius: 20px;
+      padding: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 24px rgba(108,99,255,0.3);
+    }
+    .balance‑label {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .balance‑amount {
+      font-size: 36px;
+      font-weight: 700;
+      margin: 8px 0;
+    }
+    .balance‑row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+    .balance‑item {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .section‑title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #1a1a2e;
+      margin-bottom: 12px;
+    }
+    .transaction‑list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .transaction‑item {
+      display: flex;
+      align-items: center;
+      background: #f8fafc;
+      border-radius: 16px;
+      padding: 14px 16px;
+      gap: 14px;
+    }
+    .transaction‑icon {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 20px;
+    }
+    .transaction‑info {
+      flex: 1;
+    }
+    .transaction‑desc {
+      font-weight: 600;
+      font-size: 15px;
+      color: #1a1a2e;
+    }
+    .transaction‑category {
+      font-size: 12px;
+      color: #888;
+    }
+    .transaction‑amount {
+      font-weight: 700;
+      font-size: 16px;
+    }
+    .income‑amount { color: #22c55e; }
+    .expense‑amount { color: #ef4444; }
+    /* ─── FAB (botão flutuante) ─── */
+    .fab {
+      position: fixed;
+      bottom: 30px;
+      right: 30px;
+      width: 64px;
+      height: 64px;
+      background: #6c63ff;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      font-size: 30px;
+      box-shadow: 0 8px 20px rgba(108,99,255,0.4);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .fab:active {
+      background: #5a52d5;
+    }
+    /* ─── Modal ─── */
+    .modal‑overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: flex-end;
+      justify-content: center;
+      z-index: 20;
+    }
+    .modal {
+      background: white;
+      width: 100%;
+      max-width: 480px;
+      border-radius: 28px 28px 0 0;
+      padding: 24px 20px 40px;
+      animation: slideUp 0.3s ease;
+    }
+    @keyframes slideUp {
+      from { transform: translateY(100%); }
+      to { transform: translateY(0); }
+    }
+    .modal h3 {
+      margin-bottom: 20px;
+      font-weight: 700;
+      color: #1a1a2e;
+    }
+    .type‑toggle {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+    .type‑toggle button {
+      flex: 1;
+      padding: 12px;
+      border-radius: 12px;
+      border: 2px solid #e2e8f0;
+      background: white;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .type‑toggle button.active‑expense {
+      background: #fee2e2;
+      border-color: #ef4444;
+      color: #ef4444;
+    }
+    .type‑toggle button.active‑income {
+      background: #dcfce7;
+      border-color: #22c55e;
+      color: #22c55e;
+    }
+    .close‑btn {
+      background: none;
+      border: none;
+      font-size: 28px;
+      position: absolute;
+      right: 20px;
+      cursor: pointer;
+    }
+    /* ─── Logout button ─── */
+    .logout‑btn {
+      background: none;
+      border: none;
+      color: #ef4444;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .empty‑state {
+      text-align: center;
+      color: #94a3b8;
+      padding: 40px 0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app‑container">
+  <!-- TELA DE LOGIN -->
+  <div id="login‑screen">
+    <h2>💰 Minha Carteira</h2>
+    <div class="form‑group">
+      <label>E‑mail</label>
+      <input type="email" id="email" placeholder="seu@email.com">
+    </div>
+    <div class="form‑group">
+      <label>Senha</label>
+      <input type="password" id="password" placeholder="••••••••">
+    </div>
+    <div id="login‑error" class="error‑msg"></div>
+    <button class="btn btn‑primary" onclick="handleLogin()">Entrar</button>
+    <button class="btn btn‑outline" onclick="handleSignUp()">Criar conta</button>
+    <p style="font-size:12px;color:#94a3b8;text-align:center;">Ao se cadastrar você cria seu espaço privado.</p>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div id="dashboard">
+    <div class="header">
+      <div>
+        <h1>Minha Carteira</h1>
+        <span class="user‑email" id="user‑email"></span>
+      </div>
+      <button class="logout‑btn" onclick="handleLogout()">Sair</button>
+    </div>
+
+    <!-- Saldo -->
+    <div class="balance‑card">
+      <div class="balance‑label">Saldo atual</div>
+      <div class="balance‑amount" id="balance">R$ 0,00</div>
+      <div class="balance‑row">
+        <span class="balance‑item" id="income‑total">➕ R$ 0,00</span>
+        <span class="balance‑item" id="expense‑total">➖ R$ 0,00</span>
+      </div>
+    </div>
+
+    <div class="section‑title">Últimas transações</div>
+    <div id="transaction‑list" class="transaction‑list">
+      <div class="empty‑state">Nenhuma transação ainda.</div>
+    </div>
+  </div>
+
+  <!-- FAB -->
+  <button class="fab" onclick="openModal()">+</button>
+
+  <!-- MODAL -->
+  <div class="modal‑overlay" id="modal‑overlay">
+    <div class="modal">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <h3>Nova transação</h3>
+        <button class="close‑btn" onclick="closeModal()">×</button>
+      </div>
+      <div class="type‑toggle">
+        <button id="type‑expense" class="active‑expense" onclick="setType('expense')">Despesa</button>
+        <button id="type‑income" onclick="setType('income')">Receita</button>
+      </div>
+      <div class="form‑group" style="margin-bottom:12px;">
+        <label>Valor</label>
+        <input type="number" id="modal‑amount" placeholder="R$ 0,00" step="0.01">
+      </div>
+      <div class="form‑group" style="margin-bottom:12px;">
+        <label>Descrição</label>
+        <input type="text" id="modal‑description" placeholder="Ex: Supermercado">
+      </div>
+      <div class="form‑group" style="margin-bottom:12px;">
+        <label>Categoria</label>
+        <select id="modal‑category" style="padding:14px;border-radius:14px;border:2px solid #e2e8f0;">
+        </select>
+      </div>
+      <div class="form‑group" style="margin-bottom:20px;">
+        <label>Data</label>
+        <input type="date" id="modal‑date">
+      </div>
+      <button class="btn btn‑primary" onclick="saveTransaction()" style="width:100%;">
+        Salvar transação
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══ Configuração Supabase ═══
+const SUPABASE_URL = "https://zdhzifmfycldgolqfamw.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkaHppZm1meWNsZGdvbHFmYW13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MjMzMjUsImV4cCI6MjA5MzM5OTMyNX0.khGI5Jzfcq6TPeZH5G9U4667mF9rUePOHUwjfXfcfDs";
+
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// ═══ Variáveis globais ═══
+let currentType = 'expense';
+let categories = [];
+
+// ═══ Inicialização ═══
+document.addEventListener('DOMContentLoaded', async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    showDashboard(session.user);
+  } else {
+    showLogin();
+  }
+  // Listener para mudanças de autenticação
+  supabase.auth.onAuthStateChange((_event, session) => {
+    if (session) {
+      showDashboard(session.user);
+    } else {
+      showLogin();
+    }
+  });
+});
+
+// ═══ Tela de Login ═══
+function showLogin() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('dashboard').style.display = 'none';
+  document.querySelector('.fab').style.display = 'none';
+}
+
+function showDashboard(user) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.querySelector('.fab').style.display = 'flex';
+  document.getElementById('user-email').textContent = user.email;
+  loadDashboard();
+}
+
+async function handleLogin() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    document.getElementById('login-error').textContent = error.message;
+  } else {
+    document.getElementById('login-error').textContent = '';
+  }
+}
+
+async function handleSignUp() {
+  const email = document.getElementById('email').value;
+  const password = document.getElementById('password').value;
+  if (password.length < 6) {
+    document.getElementById('login-error').textContent = 'Senha mínima de 6 caracteres.';
+    return;
+  }
+  const { error } = await supabase.auth.signUp({ email, password });
+  if (error) {
+    document.getElementById('login-error').textContent = error.message;
+  } else {
+    document.getElementById('login-error').textContent = 'Conta criada! Você já está logado.';
+  }
+}
+
+async function handleLogout() {
+  await supabase.auth.signOut();
+}
+
+// ═══ Dashboard ═══
+async function loadDashboard() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Buscar transações do usuário
+  const { data: transactions, error } = await supabase
+    .from('transactions')
+    .select('*, categories(name, icon, color)')
+    .eq('user_id', user.id)
+    .order('transaction_date', { ascending: false })
+    .limit(50);
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  // Calcular totais
+  let income = 0, expense = 0;
+  transactions.forEach(t => {
+    if (t.type === 'income') income += t.amount;
+    else expense += t.amount;
+  });
+  const balance = income - expense;
+
+  // Atualizar UI
+  document.getElementById('balance').textContent = formatCurrency(balance);
+  document.getElementById('income-total').textContent = '➕ ' + formatCurrency(income);
+  document.getElementById('expense-total').textContent = '➖ ' + formatCurrency(expense);
+
+  // Lista de transações
+  const list = document.getElementById('transaction-list');
+  if (transactions.length === 0) {
+    list.innerHTML = '<div class="empty-state">Nenhuma transação ainda.</div>';
+    return;
+  }
+  list.innerHTML = transactions.map(t => {
+    const cat = t.categories || { name: 'Sem categoria', icon: 'more-horizontal', color: 'gray' };
+    return `
+      <div class="transaction-item">
+        <div class="transaction-icon" style="background:${cat.color};">
+          <span class="material-icons">${cat.icon}</span>
+        </div>
+        <div class="transaction-info">
+          <div class="transaction-desc">${t.description || cat.name}</div>
+          <div class="transaction-category">${cat.name} · ${new Date(t.transaction_date).toLocaleDateString('pt-BR')}</div>
+        </div>
+        <div class="transaction-amount ${t.type === 'income' ? 'income-amount' : 'expense-amount'}">
+          ${t.type === 'income' ? '+' : '-'} ${formatCurrency(t.amount)}
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+// ═══ Modal ═══
+function openModal() {
+  document.getElementById('modal-overlay').style.display = 'flex';
+  loadCategories();
+  document.getElementById('modal-date').value = new Date().toISOString().split('T')[0];
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+
+function setType(type) {
+  currentType = type;
+  document.getElementById('type-expense').className = type === 'expense' ? 'active-expense' : '';
+  document.getElementById('type-income').className = type === 'income' ? 'active-income' : '';
+}
+
+async function loadCategories() {
+  if (categories.length > 0) return;
+  const { data } = await supabase.from('categories').select('*');
+  categories = data || [];
+  const select = document.getElementById('modal-category');
+  select.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+async function saveTransaction() {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const amount = parseFloat(document.getElementById('modal-amount').value);
+  const description = document.getElementById('modal-description').value;
+  const categoryId = document.getElementById('modal-category').value;
+  const date = document.getElementById('modal-date').value;
+
+  if (!amount || !date) {
+    alert('Preencha valor e data.');
+    return;
+  }
+
+  const { error } = await supabase.from('transactions').insert({
+    user_id: user.id,
+    type: currentType,
+    amount,
+    description,
+    category_id: categoryId,
+    transaction_date: date
+  });
+
+  if (error) {
+    alert('Erro ao salvar: ' + error.message);
+  } else {
+    closeModal();
+    // Limpar campos
+    document.getElementById('modal-amount').value = '';
+    document.getElementById('modal-description').value = '';
+    // Recarregar dashboard
+    loadDashboard();
+  }
+}
+
+// ═══ Helpers ═══
+function formatCurrency(value) {
+  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
+}
+</script>
+</body>
+</html>
