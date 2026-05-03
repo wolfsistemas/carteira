@@ -370,7 +370,8 @@
 const SUPABASE_URL = "https://zdhzifmfycldgolqfamw.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InpkaHppZm1meWNsZGdvbHFmYW13Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc4MjMzMjUsImV4cCI6MjA5MzM5OTMyNX0.khGI5Jzfcq6TPeZH5G9U4667mF9rUePOHUwjfXfcfDs";
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ✅ Criamos o cliente com nome explícito, sem risco de confusão
+const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // ═══ Variáveis globais ═══
 let currentType = 'expense';
@@ -378,14 +379,14 @@ let categories = [];
 
 // ═══ Inicialização ═══
 document.addEventListener('DOMContentLoaded', async () => {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabaseClient.auth.getSession();
   if (session) {
     showDashboard(session.user);
   } else {
     showLogin();
   }
   // Listener para mudanças de autenticação
-  supabase.auth.onAuthStateChange((_event, session) => {
+  supabaseClient.auth.onAuthStateChange((_event, session) => {
     if (session) {
       showDashboard(session.user);
     } else {
@@ -412,7 +413,7 @@ function showDashboard(user) {
 async function handleLogin() {
   const email = document.getElementById('email').value;
   const password = document.getElementById('password').value;
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
   if (error) {
     document.getElementById('login-error').textContent = error.message;
   } else {
@@ -427,7 +428,7 @@ async function handleSignUp() {
     document.getElementById('login-error').textContent = 'Senha mínima de 6 caracteres.';
     return;
   }
-  const { error } = await supabase.auth.signUp({ email, password });
+  const { error } = await supabaseClient.auth.signUp({ email, password });
   if (error) {
     document.getElementById('login-error').textContent = error.message;
   } else {
@@ -436,16 +437,16 @@ async function handleSignUp() {
 }
 
 async function handleLogout() {
-  await supabase.auth.signOut();
+  await supabaseClient.auth.signOut();
 }
 
 // ═══ Dashboard ═══
 async function loadDashboard() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) return;
 
   // Buscar transações do usuário
-  const { data: transactions, error } = await supabase
+  const { data: transactions, error } = await supabaseClient
     .from('transactions')
     .select('*, categories(name, icon, color)')
     .eq('user_id', user.id)
@@ -514,14 +515,14 @@ function setType(type) {
 
 async function loadCategories() {
   if (categories.length > 0) return;
-  const { data } = await supabase.from('categories').select('*');
+  const { data } = await supabaseClient.from('categories').select('*');
   categories = data || [];
   const select = document.getElementById('modal-category');
   select.innerHTML = categories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
 }
 
 async function saveTransaction() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabaseClient.auth.getUser();
   if (!user) return;
 
   const amount = parseFloat(document.getElementById('modal-amount').value);
@@ -534,7 +535,7 @@ async function saveTransaction() {
     return;
   }
 
-  const { error } = await supabase.from('transactions').insert({
+  const { error } = await supabaseClient.from('transactions').insert({
     user_id: user.id,
     type: currentType,
     amount,
