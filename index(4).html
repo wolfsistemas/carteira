@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carteira</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #0f1412;
+      --bg-soft: #171e1b;
+      --panel: #1c2420;
+      --panel-2: #222c27;
+      --line: rgba(212, 160, 23, 0.16);
+      --gold: #d4a017;
+      --gold-2: #f0c14b;
+      --ink: #f4efe4;
+      --muted: #9aa89f;
+      --income: #3dd68c;
+      --expense: #f07178;
+      --danger: #e05a63;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Instrument Sans", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(212, 160, 23, 0.12), transparent 50%),
+        radial-gradient(800px 400px at 100% 0%, rgba(61, 214, 140, 0.08), transparent 45%),
+        var(--bg);
+      color: var(--ink);
+    }
+
+    button, input, select, textarea {
+      font: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+      border: 0;
+      background: transparent;
+    }
+
+    .screen {
+      min-height: 100vh;
+    }
+
+    .auth-wrap, .setup-wrap {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .card {
+      width: min(440px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 40%), var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 32px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 22px;
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--gold), #8a6a12);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      color: #20180a;
+    }
+
+    h1, h2, h3 { margin: 0; }
+    h1 { font-size: 28px; }
+    h2 { font-size: 22px; }
+    p.lead, .muted { color: var(--muted); }
+
+    .stack { display: grid; gap: 12px; }
+    .row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      background: var(--bg-soft);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 12px 14px;
+      outline: none;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: rgba(212, 160, 23, 0.55);
+    }
+
+    .btn {
+      border-radius: 12px;
+      padding: 12px 16px;
+      background: linear-gradient(180deg, var(--gold-2), var(--gold));
+      color: #1b1406;
+      font-weight: 700;
+    }
+
+    .btn.ghost, .tx-actions button {
+      background: var(--panel-2);
+      color: var(--ink);
+      border: 1px solid rgba(255,255,255,0.06);
+      font-weight: 600;
+      padding: 8px 12px;
+      border-radius: 10px;
+    }
+
+    .tx-actions .danger { color: #ffd0d3; }
+    .link { color: var(--gold-2); text-decoration: none; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 260px 1fr;
+      min-height: 100vh;
+    }
+
+    .sidebar {
+      padding: 22px 16px;
+      border-right: 1px solid var(--line);
+      background: rgba(15, 20, 18, 0.72);
+      backdrop-filter: blur(16px);
+    }
+
+    .nav { display: grid; gap: 6px; margin-top: 28px; }
+    .nav button, .user-box {
+      width: 100%;
+      text-align: left;
+      padding: 12px 14px;
+      border-radius: 14px;
+      color: var(--muted);
+    }
+    .nav button.active, .nav button:hover {
+      background: var(--panel);
+      color: var(--ink);
+    }
+
+    .user-box {
+      margin-top: 24px;
+      background: var(--panel);
+      display: grid;
+      grid-template-columns: 40px 1fr;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: #2a2313;
+      color: var(--gold-2);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+    }
+
+    .main { padding: 28px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 22px;
+    }
+
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 22px;
+    }
+
+    .kpi, .panel, .card-item, .tx-row {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    .kpi { padding: 18px; }
+    .kpi span, .tx-main span, .card-head span { color: var(--muted); font-size: 13px; }
+    .kpi strong, .card-balance, .tx-amount {
+      display: block;
+      margin-top: 8px;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 22px;
+    }
+
+    .negative, .expense { color: var(--expense); }
+    .income, .kpi-income strong { color: var(--income); }
+    .kpi-expense strong { color: var(--expense); }
+
+    .panel { padding: 18px; }
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .filters, .form-grid, .cards-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .filters { grid-template-columns: repeat(3, 1fr); }
+    .form-grid { grid-template-columns: repeat(2, 1fr); }
+    .cards-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+
+    .tx-list { display: grid; gap: 10px; }
+    .tx-row {
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 12px 1fr auto auto;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .tx-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 99px;
+      background: var(--gold);
+    }
+    .tx-dot.income { background: var(--income); }
+    .tx-dot.expense { background: var(--expense); }
+    .tx-main { display: grid; gap: 3px; }
+    .tx-actions { display: flex; gap: 8px; }
+
+    .card-item { padding: 16px; display: grid; gap: 14px; }
+    .card-head { display: flex; gap: 10px; align-items: center; }
+    .swatch {
+      width: 14px;
+      height: 14px;
+      border-radius: 99px;
+      display: inline-block;
+    }
+    .archived { opacity: 0.55; }
+    .empty {
+      padding: 28px;
+      text-align: center;
+      color: var(--muted);
+      border: 1px dashed rgba(255,255,255,0.08);
+      border-radius: 16px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      background: #132019;
+      border: 1px solid rgba(61, 214, 140, 0.3);
+      color: var(--ink);
+      padding: 12px 16px;
+      border-radius: 12px;
+      opacity: 0;
+      transform: translateY(8px);
+      pointer-events: none;
+      transition: 0.2s ease;
+      z-index: 20;
+    }
+    .toast.show { opacity: 1; transform: none; }
+    .toast-err { border-color: rgba(240, 113, 120, 0.4); background: #241416; }
+
+    code {
+      background: #111;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-family: "JetBrains Mono", monospace;
+    }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { border-right: 0; border-bottom: 1px solid var(--line); }
+      .kpis, .filters, .form-grid, .tx-row { grid-template-columns: 1fr; }
+      .tx-actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+
+  <section id="setup-screen" class="screen" hidden>
+    <div class="setup-wrap">
+      <div class="card stack">
+        <div class="brand">
+          <div class="logo">C</div>
+          <div>
+            <h1>Carteira</h1>
+            <p class="muted">Configure o Supabase para iniciar</p>
+          </div>
+        </div>
+        <p class="lead">Abra <code>app.js</code> e preencha <code>CONFIG.supabaseUrl</code> e <code>CONFIG.supabaseAnonKey</code>.</p>
+        <p class="muted">Depois rode <code>schema.sql</code> e <code>policies.sql</code> no SQL Editor do Supabase.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="auth-screen" class="screen" hidden>
+    <div class="auth-wrap">
+      <form id="auth-form" class="card stack" data-mode="login">
+        <div class="brand">
+          <div class="logo">C</div>
+          <div>
+            <h1 id="auth-title">Entrar</h1>
+            <p class="muted">Controle de receitas e despesas por usuario</p>
+          </div>
+        </div>
+        <div id="auth-name-wrap" hidden>
+          <label>Nome
+            <input id="auth-name" type="text" placeholder="Seu nome">
+          </label>
+        </div>
+        <label>E-mail
+          <input id="auth-email" type="email" required placeholder="voce@email.com">
+        </label>
+        <label>Senha
+          <input id="auth-password" type="password" required minlength="6" placeholder="Minimo 6 caracteres">
+        </label>
+        <button class="btn" id="auth-submit" type="submit">Entrar</button>
+        <button class="link" id="auth-toggle" type="button">Criar uma conta</button>
+      </form>
+    </div>
+  </section>
+
+  <section id="app-screen" class="app" hidden>
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo">C</div>
+        <div>
+          <h2>Carteira</h2>
+          <p class="muted">Multi-usuario</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <button type="button" class="active" data-view="dashboard">Painel</button>
+        <button type="button" data-view="transactions">Lancamentos</button>
+        <button type="button" data-view="accounts">Contas</button>
+        <button type="button" data-view="categories">Categorias</button>
+        <button type="button" data-view="profile">Perfil</button>
+      </nav>
+      <div class="user-box">
+        <div class="avatar" id="avatar">U</div>
+        <div>
+          <strong id="user-name">Usuario</strong>
+          <div class="muted" id="user-email"></div>
+        </div>
+      </div>
+      <div style="margin-top:12px">
+        <button class="btn ghost" id="logout-btn" type="button">Sair</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <section data-view-panel="dashboard">
+        <div class="topbar">
+          <div>
+            <h1>Painel</h1>
+            <p class="muted">Resumo do mes <span id="month-label"></span></p>
+          </div>
+        </div>
+        <div class="kpis">
+          <article class="kpi kpi-income"><span>Receitas</span><strong id="kpi-income">R$ 0,00</strong></article>
+          <article class="kpi kpi-expense"><span>Despesas</span><strong id="kpi-expense">R$ 0,00</strong></article>
+          <article class="kpi"><span>Resultado</span><strong id="kpi-result">R$ 0,00</strong></article>
+          <article class="kpi"><span>Saldo das contas</span><strong id="kpi-balance">R$ 0,00</strong></article>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h3>Ultimos lancamentos</h3>
+          </div>
+          <div id="dash-list" class="tx-list"></div>
+        </div>
+      </section>
+
+      <section data-view-panel="transactions" hidden>
+        <div class="topbar">
+          <div>
+            <h1>Lancamentos</h1>
+            <p class="muted">Receitas e despesas do usuario logado</p>
+          </div>
+        </div>
+        <div class="panel stack">
+          <form id="tx-form" class="form-grid">
+            <label>Tipo
+              <select id="tx-type">
+                <option value="expense">Despesa</option>
+                <option value="income">Receita</option>
+              </select>
+            </label>
+            <label>Valor
+              <input id="tx-amount" type="number" min="0.01" step="0.01" required>
+            </label>
+            <label>Data
+              <input id="tx-date" type="date" required>
+            </label>
+            <label>Conta
+              <select id="tx-account" required></select>
+            </label>
+            <label>Categoria
+              <select id="tx-category"></select>
+            </label>
+            <label>Descricao
+              <input id="tx-description" type="text" placeholder="Ex: mercado, salario">
+            </label>
+            <div class="row">
+              <button class="btn" id="tx-submit" type="submit">Salvar lancamento</button>
+              <button class="btn ghost" id="tx-cancel" type="button" hidden>Cancelar edicao</button>
+            </div>
+          </form>
+        </div>
+        <div class="panel" style="margin-top:16px">
+          <div class="filters">
+            <label>Mes
+              <input id="filter-month" type="month">
+            </label>
+            <label>Tipo
+              <select id="filter-type">
+                <option value="all">Todos</option>
+                <option value="income">Receitas</option>
+                <option value="expense">Despesas</option>
+              </select>
+            </label>
+            <label>Conta
+              <select id="filter-account"></select>
+            </label>
+          </div>
+          <div id="tx-list" class="tx-list" style="margin-top:16px"></div>
+        </div>
+      </section>
+
+      <section data-view-panel="accounts" hidden>
+        <div class="topbar">
+          <div>
+            <h1>Contas</h1>
+            <p class="muted">Cada conta pertence ao seu user_id</p>
+          </div>
+        </div>
+        <div class="panel">
+          <form id="account-form" class="form-grid">
+            <label>Nome
+              <input id="account-name" type="text" required placeholder="Carteira, Nubank...">
+            </label>
+            <label>Tipo
+              <select id="account-type">
+                <option value="cash">Dinheiro</option>
+                <option value="checking">Corrente</option>
+                <option value="savings">Poupanca</option>
+                <option value="credit">Credito</option>
+                <option value="other">Outra</option>
+              </select>
+            </label>
+            <label>Saldo inicial
+              <input id="account-balance" type="number" step="0.01" value="0">
+            </label>
+            <label>Cor
+              <input id="account-color" type="color" value="#d4a017">
+            </label>
+            <div><button class="btn" id="account-submit" type="submit">Criar conta</button></div>
+          </form>
+        </div>
+        <div id="accounts-list" class="cards-grid" style="margin-top:16px"></div>
+      </section>
+
+      <section data-view-panel="categories" hidden>
+        <div class="topbar">
+          <div>
+            <h1>Categorias</h1>
+            <p class="muted">Separadas por receita e despesa</p>
+          </div>
+        </div>
+        <div class="panel">
+          <form id="category-form" class="form-grid">
+            <label>Nome
+              <input id="category-name" type="text" required placeholder="Alimentacao, Salario...">
+            </label>
+            <label>Tipo
+              <select id="category-type">
+                <option value="expense">Despesa</option>
+                <option value="income">Receita</option>
+              </select>
+            </label>
+            <label>Cor
+              <input id="category-color" type="color" value="#6b7c93">
+            </label>
+            <div><button class="btn" id="category-submit" type="submit">Criar categoria</button></div>
+          </form>
+        </div>
+        <div id="categories-list" class="cards-grid" style="margin-top:16px"></div>
+      </section>
+
+      <section data-view-panel="profile" hidden>
+        <div class="topbar">
+          <div>
+            <h1>Perfil</h1>
+            <p class="muted">Planilha de usuario vinculada ao Auth</p>
+          </div>
+        </div>
+        <div class="panel">
+          <form id="profile-form" class="stack" style="max-width:420px">
+            <label>Nome de exibicao
+              <input id="profile-name" type="text" required>
+            </label>
+            <button class="btn" type="submit">Salvar perfil</button>
+          </form>
+        </div>
+      </section>
+    </main>
+  </section>
+
+  <script src="app.js"></script>
+</body>
+</html>
