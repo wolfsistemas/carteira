@@ -1,6 +1,6 @@
 const CONFIG = {
-  supabaseUrl: "COLE_AQUI_A_URL_DO_SUPABASE",
-  supabaseAnonKey: "COLE_AQUI_A_ANON_KEY",
+  supabaseUrl: "https://jlgqvvwzrscqbhakbgvk.supabase.co",
+  supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsZ3F2dnd6cnNjcWJoYWtiZ3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNjUxMjEsImV4cCI6MjEwMzg0MTEyMX0.YD311wK_Q9UOlmM2GWpZmdh9l-KdefVkTT6Jn6HkFzg",
 };
 
 const ACCOUNT_TYPES = {
