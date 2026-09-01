@@ -8,6 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js"></script>
   <style>
     :root {
       --bg: #0f1412;
@@ -27,7 +29,8 @@
     }
 
     * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100%; }
+    html, body { margin: 0; min-height: 100%; overflow-x: hidden; }
+    [hidden] { display: none !important; }
     body {
       font-family: "Instrument Sans", sans-serif;
       background:
@@ -136,7 +139,7 @@
 
     .app {
       display: grid;
-      grid-template-columns: 260px 1fr;
+      grid-template-columns: 260px minmax(0, 1fr);
       min-height: 100vh;
     }
 
@@ -145,6 +148,8 @@
       border-right: 1px solid var(--line);
       background: rgba(15, 20, 18, 0.72);
       backdrop-filter: blur(16px);
+      min-width: 0;
+      overflow: hidden;
     }
 
     .nav { display: grid; gap: 6px; margin-top: 28px; }
@@ -164,9 +169,22 @@
       margin-top: 24px;
       background: var(--panel);
       display: grid;
-      grid-template-columns: 40px 1fr;
+      grid-template-columns: 40px minmax(0, 1fr);
       gap: 10px;
       align-items: center;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .user-meta {
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    #user-name, #user-email {
+      display: block;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .avatar {
@@ -178,6 +196,7 @@
       display: grid;
       place-items: center;
       font-weight: 700;
+      flex-shrink: 0;
     }
 
     .main { padding: 28px; }
@@ -340,10 +359,13 @@
         <label>E-mail
           <input id="auth-email" type="email" required placeholder="voce@email.com">
         </label>
-        <label>Senha
-          <input id="auth-password" type="password" required minlength="6" placeholder="Minimo 6 caracteres">
-        </label>
+        <div id="auth-password-wrap">
+          <label>Senha
+            <input id="auth-password" type="password" required minlength="6" placeholder="Minimo 6 caracteres">
+          </label>
+        </div>
         <button class="btn" id="auth-submit" type="submit">Entrar</button>
+        <button class="link" id="auth-forgot" type="button">Esqueci a senha</button>
         <button class="link" id="auth-toggle" type="button">Criar uma conta</button>
       </form>
     </div>
@@ -367,7 +389,7 @@
       </nav>
       <div class="user-box">
         <div class="avatar" id="avatar">U</div>
-        <div>
+        <div class="user-meta">
           <strong id="user-name">Usuario</strong>
           <div class="muted" id="user-email"></div>
         </div>
@@ -384,6 +406,7 @@
             <h1>Painel</h1>
             <p class="muted">Resumo do mes <span id="month-label"></span></p>
           </div>
+          <button class="btn ghost" id="pdf-btn-dash" type="button">Salvar PDF</button>
         </div>
         <div class="kpis">
           <article class="kpi kpi-income"><span>Receitas</span><strong id="kpi-income">R$ 0,00</strong></article>
@@ -405,6 +428,7 @@
             <h1>Lancamentos</h1>
             <p class="muted">Receitas e despesas do usuario logado</p>
           </div>
+          <button class="btn ghost" id="pdf-btn" type="button">Salvar PDF</button>
         </div>
         <div class="panel stack">
           <form id="tx-form" class="form-grid">
