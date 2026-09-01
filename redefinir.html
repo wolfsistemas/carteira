@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redefinir senha</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #0f1412;
+      --bg-soft: #171e1b;
+      --panel: #1c2420;
+      --line: rgba(212, 160, 23, 0.16);
+      --gold: #d4a017;
+      --gold-2: #f0c14b;
+      --ink: #f4efe4;
+      --muted: #9aa89f;
+      --income: #3dd68c;
+      --expense: #f07178;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    [hidden] { display: none !important; }
+    body {
+      font-family: "Instrument Sans", sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(212, 160, 23, 0.12), transparent 50%),
+        radial-gradient(800px 400px at 100% 0%, rgba(61, 214, 140, 0.08), transparent 45%),
+        var(--bg);
+      color: var(--ink);
+    }
+    button, input { font: inherit; color: inherit; }
+    button { cursor: pointer; border: 0; }
+    .wrap {
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    .card {
+      width: min(440px, 100%);
+      background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 40%), var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 32px;
+      display: grid;
+      gap: 12px;
+    }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .logo {
+      width: 42px; height: 42px; border-radius: 14px;
+      background: linear-gradient(135deg, var(--gold), #8a6a12);
+      display: grid; place-items: center; font-weight: 700; color: #20180a;
+    }
+    h1 { margin: 0; font-size: 28px; }
+    .muted { color: var(--muted); margin: 0; }
+    label { display: grid; gap: 6px; font-size: 13px; color: var(--muted); }
+    input {
+      width: 100%;
+      background: var(--bg-soft);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 12px 14px;
+      outline: none;
+    }
+    input:focus { border-color: rgba(212, 160, 23, 0.55); }
+    .btn {
+      border-radius: 12px;
+      padding: 12px 16px;
+      background: linear-gradient(180deg, var(--gold-2), var(--gold));
+      color: #1b1406;
+      font-weight: 700;
+    }
+    .link { color: var(--gold-2); text-decoration: none; background: transparent; padding: 0; text-align: left; }
+    .toast {
+      position: fixed; right: 20px; bottom: 20px;
+      background: #132019; border: 1px solid rgba(61, 214, 140, 0.3);
+      color: var(--ink); padding: 12px 16px; border-radius: 12px;
+      opacity: 0; transform: translateY(8px); pointer-events: none; transition: 0.2s ease;
+    }
+    .toast.show { opacity: 1; transform: none; }
+    .toast-err { border-color: rgba(240, 113, 120, 0.4); background: #241416; }
+    .status {
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: var(--bg-soft);
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .status.ok { color: var(--income); }
+    .status.err { color: var(--expense); }
+  </style>
+</head>
+<body>
+  <div id="toast" class="toast"></div>
+  <div class="wrap">
+    <form id="reset-form" class="card">
+      <div class="brand">
+        <div class="logo">C</div>
+        <div>
+          <h1>Nova senha</h1>
+          <p class="muted">Usa o token do link enviado pelo Supabase</p>
+        </div>
+      </div>
+      <div id="status" class="status">Validando o link de redefinicao...</div>
+      <label>Nova senha
+        <input id="password" type="password" minlength="6" required placeholder="Minimo 6 caracteres" disabled>
+      </label>
+      <label>Confirmar senha
+        <input id="password2" type="password" minlength="6" required placeholder="Repita a senha" disabled>
+      </label>
+      <button class="btn" id="submit" type="submit" disabled>Salvar nova senha</button>
+      <a class="link" href="index.html">Voltar para o login</a>
+    </form>
+  </div>
+  <script>
+    const CONFIG = {
+      supabaseUrl: "COLE_AQUI_A_URL_DO_SUPABASE",
+      supabaseAnonKey: "COLE_AQUI_A_ANON_KEY",
+    };
+
+    const statusEl = document.getElementById("status");
+    const form = document.getElementById("reset-form");
+    const passwordEl = document.getElementById("password");
+    const password2El = document.getElementById("password2");
+    const submitEl = document.getElementById("submit");
+    const toastEl = document.getElementById("toast");
+
+    function toast(message, type) {
+      toastEl.textContent = message;
+      toastEl.className = "toast show toast-" + (type || "ok");
+      setTimeout(() => toastEl.classList.remove("show"), 3200);
+    }
+
+    function setStatus(message, type) {
+      statusEl.textContent = message;
+      statusEl.className = "status" + (type ? " " + type : "");
+    }
+
+    function configReady() {
+      return (
+        CONFIG.supabaseUrl.startsWith("http") &&
+        CONFIG.supabaseAnonKey.length > 20 &&
+        !CONFIG.supabaseUrl.includes("COLE_AQUI") &&
+        !CONFIG.supabaseAnonKey.includes("COLE_AQUI")
+      );
+    }
+
+    function parseHashParams() {
+      const hash = window.location.hash.startsWith("#")
+        ? window.location.hash.slice(1)
+        : window.location.hash;
+      return new URLSearchParams(hash);
+    }
+
+    function enableForm() {
+      passwordEl.disabled = false;
+      password2El.disabled = false;
+      submitEl.disabled = false;
+    }
+
+    async function boot() {
+      if (!configReady()) {
+        setStatus("Configure supabaseUrl e supabaseAnonKey neste arquivo, iguais ao app.js.", "err");
+        return;
+      }
+
+      const client = window.supabase.createClient(CONFIG.supabaseUrl, CONFIG.supabaseAnonKey);
+      const hash = parseHashParams();
+      const query = new URLSearchParams(window.location.search);
+      const type = hash.get("type") || query.get("type");
+      const errorDescription = hash.get("error_description") || query.get("error_description");
+      const errorCode = hash.get("error") || query.get("error");
+      const code = query.get("code");
+
+      if (errorCode || errorDescription) {
+        setStatus(decodeURIComponent(errorDescription || errorCode || "Link invalido."), "err");
+        return;
+      }
+
+      if (type && type !== "recovery") {
+        setStatus("Este link nao e de redefinicao de senha.", "err");
+        return;
+      }
+
+      try {
+        if (code) {
+          const { error } = await client.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        }
+
+        const { data, error } = await client.auth.getSession();
+        if (error) throw error;
+        if (!data.session) {
+          setStatus("Link invalido, expirado ou ja utilizado. Solicite um novo em Esqueci a senha.", "err");
+          return;
+        }
+
+        setStatus("Link valido. Defina a nova senha.", "ok");
+        enableForm();
+
+        form.addEventListener("submit", async (event) => {
+          event.preventDefault();
+          const password = passwordEl.value;
+          const password2 = password2El.value;
+          if (password.length < 6) {
+            toast("A senha precisa ter no minimo 6 caracteres.", "err");
+            return;
+          }
+          if (password !== password2) {
+            toast("As senhas nao coincidem.", "err");
+            return;
+          }
+          submitEl.disabled = true;
+          submitEl.textContent = "Aguarde...";
+          const { error: updateError } = await client.auth.updateUser({ password });
+          submitEl.disabled = false;
+          submitEl.textContent = "Salvar nova senha";
+          if (updateError) {
+            toast(updateError.message, "err");
+            return;
+          }
+          toast("Senha atualizada. Voce ja pode entrar.");
+          setStatus("Senha redefinida com sucesso.", "ok");
+          window.setTimeout(() => {
+            window.location.replace("index.html");
+          }, 1200);
+        });
+      } catch (error) {
+        setStatus(error.message || "Nao foi possivel validar o token.", "err");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", boot);
+  </script>
+</body>
+</html>
