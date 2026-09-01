@@ -3,6 +3,7 @@ const CONFIG = {
   supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsZ3F2dnd6cnNjcWJoYWtiZ3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNjUxMjEsImV4cCI6MjEwMzg0MTEyMX0.YD311wK_Q9UOlmM2GWpZmdh9l-KdefVkTT6Jn6HkFzg",
 };
 
+
 const ACCOUNT_TYPES = {
   cash: "Dinheiro",
   checking: "Corrente",
@@ -96,6 +97,21 @@ function showScreen(name) {
   $("setup-screen").hidden = name !== "setup";
   $("auth-screen").hidden = name !== "auth";
   $("app-screen").hidden = name !== "app";
+}
+
+function resetRedirectUrl() {
+  const url = new URL("redefinir.html", window.location.href);
+  return url.href;
+}
+
+function filterLabel() {
+  const typeMap = { all: "Todos", income: "Receitas", expense: "Despesas" };
+  const account =
+    state.filters.accountId === "all"
+      ? "Todas as contas"
+      : accountById(state.filters.accountId)?.name || "Conta";
+  const [year, month] = state.filters.month.split("-");
+  return `Mes ${month}/${year} · ${typeMap[state.filters.type] || "Todos"} · ${account}`;
 }
 
 function setView(view) {
@@ -376,6 +392,29 @@ async function onAuthState(session) {
   await loadAll();
 }
 
+function setAuthMode(mode) {
+  const form = $("auth-form");
+  form.dataset.mode = mode;
+  const isSignup = mode === "signup";
+  const isForgot = mode === "forgot";
+  $("auth-name-wrap").hidden = !isSignup;
+  $("auth-password-wrap").hidden = isForgot;
+  $("auth-password").required = !isForgot;
+  $("auth-forgot").hidden = isForgot;
+  $("auth-submit").dataset.label = isForgot
+    ? "Enviar link"
+    : isSignup
+      ? "Criar conta"
+      : "Entrar";
+  $("auth-submit").textContent = $("auth-submit").dataset.label;
+  $("auth-toggle").textContent = isSignup || isForgot ? "Ja tenho conta" : "Criar uma conta";
+  $("auth-title").textContent = isForgot
+    ? "Redefinir senha"
+    : isSignup
+      ? "Criar conta"
+      : "Entrar";
+}
+
 async function handleAuthSubmit(event) {
   event.preventDefault();
   const mode = $("auth-form").dataset.mode || "login";
@@ -385,6 +424,16 @@ async function handleAuthSubmit(event) {
   const button = $("auth-submit");
   setBusy(button, true);
   try {
+    if (mode === "forgot") {
+      if (!email) throw new Error("Informe o e-mail da conta.");
+      const { error } = await state.client.auth.resetPasswordForEmail(email, {
+        redirectTo: resetRedirectUrl(),
+      });
+      if (error) throw error;
+      toast("Se o e-mail existir, o link de redefinicao foi enviado.");
+      setAuthMode("login");
+      return;
+    }
     if (mode === "signup") {
       const { data, error } = await state.client.auth.signUp({
         email,
@@ -408,14 +457,64 @@ async function handleAuthSubmit(event) {
 
 function toggleAuthMode() {
   const form = $("auth-form");
-  const next = form.dataset.mode === "signup" ? "login" : "signup";
-  form.dataset.mode = next;
-  $("auth-name-wrap").hidden = next !== "signup";
-  $("auth-submit").dataset.label = next === "signup" ? "Criar conta" : "Entrar";
-  $("auth-submit").textContent = $("auth-submit").dataset.label;
-  $("auth-toggle").textContent =
-    next === "signup" ? "Ja tenho conta" : "Criar uma conta";
-  $("auth-title").textContent = next === "signup" ? "Criar conta" : "Entrar";
+  const next = form.dataset.mode === "signup" || form.dataset.mode === "forgot" ? "login" : "signup";
+  setAuthMode(next);
+}
+
+function exportPdf() {
+  const jsPDF = window.jspdf?.jsPDF;
+  if (!jsPDF) {
+    toast("Biblioteca de PDF nao carregou.", "err");
+    return;
+  }
+  const items = filteredTransactions();
+  const totals = monthTotals();
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const userName = state.profile?.display_name || state.user?.email || "Usuario";
+  doc.setFontSize(16);
+  doc.text("Relatorio de carteira", 14, 18);
+  doc.setFontSize(10);
+  doc.text(userName, 14, 26);
+  doc.text(filterLabel(), 14, 32);
+  doc.text(`Gerado em ${new Date().toLocaleString("pt-BR")}`, 14, 38);
+  doc.text(
+    `Receitas ${formatMoney(totals.income)}  |  Despesas ${formatMoney(totals.expense)}  |  Resultado ${formatMoney(totals.income - totals.expense)}`,
+    14,
+    46
+  );
+
+  const rows = items.map((item) => {
+    const account = accountById(item.account_id);
+    const category = categoryById(item.category_id);
+    return [
+      formatDate(item.occurred_at),
+      item.type === "income" ? "Receita" : "Despesa",
+      item.description || "-",
+      account?.name || "-",
+      category?.name || "-",
+      formatMoney(item.amount),
+    ];
+  });
+
+  if (typeof doc.autoTable === "function") {
+    doc.autoTable({
+      startY: 52,
+      head: [["Data", "Tipo", "Descricao", "Conta", "Categoria", "Valor"]],
+      body: rows.length ? rows : [["-", "-", "Nenhum lancamento", "-", "-", "-"]],
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [212, 160, 23], textColor: [27, 20, 6] },
+      columnStyles: { 5: { halign: "right" } },
+    });
+  } else {
+    let y = 54;
+    rows.forEach((row) => {
+      doc.text(row.join(" | "), 14, y);
+      y += 6;
+    });
+  }
+
+  const fileMonth = state.filters.month.replace("-", "");
+  doc.save(`relatorio-carteira-${fileMonth}.pdf`);
 }
 
 async function handleTransactionSubmit(event) {
@@ -576,6 +675,9 @@ async function handleProfileSubmit(event) {
 function bindEvents() {
   $("auth-form").addEventListener("submit", handleAuthSubmit);
   $("auth-toggle").addEventListener("click", toggleAuthMode);
+  $("auth-forgot").addEventListener("click", () => setAuthMode("forgot"));
+  $("pdf-btn").addEventListener("click", exportPdf);
+  $("pdf-btn-dash").addEventListener("click", exportPdf);
   $("tx-form").addEventListener("submit", handleTransactionSubmit);
   $("tx-cancel").addEventListener("click", resetTransactionForm);
   $("tx-type").addEventListener("change", fillCategorySelect);
