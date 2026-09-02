@@ -3,7 +3,6 @@ const CONFIG = {
   supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsZ3F2dnd6cnNjcWJoYWtiZ3ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyNjUxMjEsImV4cCI6MjEwMzg0MTEyMX0.YD311wK_Q9UOlmM2GWpZmdh9l-KdefVkTT6Jn6HkFzg",
 };
 
-
 const ACCOUNT_TYPES = {
   cash: "Dinheiro",
   checking: "Corrente",
@@ -116,12 +115,24 @@ function filterLabel() {
 
 function setView(view) {
   state.view = view;
+  const labels = {
+    dashboard: "Painel",
+    transactions: "Lancamentos",
+    accounts: "Contas",
+    categories: "Categorias",
+    profile: "Perfil",
+  };
   document.querySelectorAll("[data-view-panel]").forEach((panel) => {
     panel.hidden = panel.dataset.viewPanel !== view;
   });
   document.querySelectorAll("[data-view]").forEach((btn) => {
     btn.classList.toggle("active", btn.dataset.view === view);
   });
+  if ($("mobile-view-label")) {
+    $("mobile-view-label").textContent = labels[view] || "Carteira";
+  }
+  updateFab();
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 function accountById(id) {
@@ -143,6 +154,19 @@ function filteredTransactions() {
   });
 }
 
+function totalsForMonth(monthValue) {
+  const { start, end } = monthRange(monthValue);
+  return state.transactions.reduce(
+    (acc, item) => {
+      if (item.occurred_at < start || item.occurred_at > end) return acc;
+      if (item.type === "income") acc.income += Number(item.amount);
+      else acc.expense += Number(item.amount);
+      return acc;
+    },
+    { income: 0, expense: 0 }
+  );
+}
+
 function monthTotals() {
   return filteredTransactions().reduce(
     (acc, item) => {
@@ -152,6 +176,42 @@ function monthTotals() {
     },
     { income: 0, expense: 0 }
   );
+}
+
+function monthName(monthValue) {
+  const [year, month] = monthValue.split("-").map(Number);
+  const label = new Date(year, month - 1, 1).toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function lastMonths(count) {
+  const now = new Date();
+  return Array.from({ length: count }, (_, index) => {
+    const date = new Date(now.getFullYear(), now.getMonth() - index, 1);
+    return toMonthValue(date);
+  });
+}
+
+function openTxModal() {
+  $("tx-modal").hidden = false;
+  document.body.classList.add("modal-open");
+  fillAccountSelects();
+  fillCategorySelect();
+}
+
+function closeTxModal() {
+  $("tx-modal").hidden = true;
+  document.body.classList.remove("modal-open");
+  resetTransactionForm();
+}
+
+function updateFab() {
+  const fab = $("fab-add");
+  if (!fab) return;
+  fab.hidden = state.view !== "transactions" || $("app-screen").hidden;
 }
 
 function accountBalance(account) {
@@ -203,14 +263,21 @@ function fillCategorySelect() {
 
 function renderProfile() {
   const name = state.profile?.display_name || state.user?.email || "Usuario";
+  const email = state.user?.email || "";
+  const initial = name.slice(0, 1).toUpperCase();
   $("user-name").textContent = name;
-  $("user-email").textContent = state.user?.email || "";
+  $("user-email").textContent = email;
   $("profile-name").value = state.profile?.display_name || "";
-  $("avatar").textContent = name.slice(0, 1).toUpperCase();
+  $("avatar").textContent = initial;
+  if ($("avatar-mobile")) $("avatar-mobile").textContent = initial;
+  if ($("avatar-profile")) $("avatar-profile").textContent = initial;
+  if ($("user-name-mobile")) $("user-name-mobile").textContent = name;
+  if ($("user-email-mobile")) $("user-email-mobile").textContent = email;
 }
 
 function renderKpis() {
-  const totals = monthTotals();
+  const currentMonth = toMonthValue(new Date());
+  const totals = totalsForMonth(currentMonth);
   const balance = state.accounts.reduce((sum, account) => sum + accountBalance(account), 0);
   $("kpi-income").textContent = formatMoney(totals.income);
   $("kpi-expense").textContent = formatMoney(totals.expense);
@@ -249,9 +316,25 @@ function renderTransactionRows(targetId, items, emptyText) {
 }
 
 function renderDashboard() {
-  const recent = filteredTransactions().slice(0, 8);
-  renderTransactionRows("dash-list", recent, "Nenhum lancamento neste mes.");
-  $("month-label").textContent = state.filters.month.split("-").reverse().join("/");
+  const currentMonth = toMonthValue(new Date());
+  $("month-label").textContent = monthName(currentMonth);
+  const el = $("month-cards");
+  if (!el) return;
+  el.innerHTML = lastMonths(3)
+    .map((monthValue) => {
+      const totals = totalsForMonth(monthValue);
+      const result = totals.income - totals.expense;
+      const current = monthValue === currentMonth;
+      return `
+        <button type="button" class="month-card ${current ? "is-current" : ""}" data-month="${monthValue}">
+          <strong>${monthName(monthValue)}</strong>
+          <div class="mini-row"><span>Entradas</span><b class="income">${formatMoney(totals.income)}</b></div>
+          <div class="mini-row"><span>Saidas</span><b class="expense">${formatMoney(totals.expense)}</b></div>
+          <div class="mini-row"><span>Resultado</span><b class="${result < 0 ? "negative" : ""}">${formatMoney(result)}</b></div>
+        </button>
+      `;
+    })
+    .join("");
 }
 
 function renderAccounts() {
@@ -358,7 +441,7 @@ function resetTransactionForm() {
   $("tx-type").value = "expense";
   $("tx-submit").dataset.label = "Salvar lancamento";
   $("tx-submit").textContent = "Salvar lancamento";
-  $("tx-cancel").hidden = true;
+  if ($("tx-modal-title")) $("tx-modal-title").textContent = "Novo lancamento";
   fillCategorySelect();
   fillAccountSelects();
 }
@@ -374,8 +457,9 @@ function fillTransactionForm(item) {
   $("tx-description").value = item.description || "";
   $("tx-submit").dataset.label = "Atualizar lancamento";
   $("tx-submit").textContent = "Atualizar lancamento";
-  $("tx-cancel").hidden = false;
+  if ($("tx-modal-title")) $("tx-modal-title").textContent = "Editar lancamento";
   setView("transactions");
+  openTxModal();
 }
 
 async function onAuthState(session) {
@@ -385,11 +469,14 @@ async function onAuthState(session) {
     state.accounts = [];
     state.categories = [];
     state.transactions = [];
+    closeTxModal();
     showScreen("auth");
+    updateFab();
     return;
   }
   showScreen("app");
   await loadAll();
+  updateFab();
 }
 
 function setAuthMode(mode) {
@@ -541,7 +628,7 @@ async function handleTransactionSubmit(event) {
     const { error } = await query;
     if (error) throw error;
     toast(state.editingId ? "Lancamento atualizado." : "Lancamento salvo.");
-    resetTransactionForm();
+    closeTxModal();
     await loadAll();
   } catch (error) {
     toast(error.message, "err");
@@ -559,7 +646,7 @@ async function deleteTransaction(id) {
     .eq("user_id", state.user.id);
   if (error) return toast(error.message, "err");
   toast("Lancamento excluido.");
-  if (state.editingId === id) resetTransactionForm();
+  if (state.editingId === id) closeTxModal();
   await loadAll();
 }
 
@@ -679,7 +766,15 @@ function bindEvents() {
   $("pdf-btn").addEventListener("click", exportPdf);
   $("pdf-btn-dash").addEventListener("click", exportPdf);
   $("tx-form").addEventListener("submit", handleTransactionSubmit);
-  $("tx-cancel").addEventListener("click", resetTransactionForm);
+  $("tx-cancel").addEventListener("click", closeTxModal);
+  $("tx-modal-close").addEventListener("click", closeTxModal);
+  $("tx-modal").addEventListener("click", (event) => {
+    if (event.target === $("tx-modal")) closeTxModal();
+  });
+  $("fab-add").addEventListener("click", () => {
+    resetTransactionForm();
+    openTxModal();
+  });
   $("tx-type").addEventListener("change", fillCategorySelect);
   $("account-form").addEventListener("submit", handleAccountSubmit);
   $("category-form").addEventListener("submit", handleCategorySubmit);
@@ -699,16 +794,27 @@ function bindEvents() {
   $("logout-btn").addEventListener("click", async () => {
     await state.client.auth.signOut();
   });
+  $("logout-btn-mobile").addEventListener("click", async () => {
+    await state.client.auth.signOut();
+  });
   document.querySelectorAll("[data-view]").forEach((btn) => {
     btn.addEventListener("click", () => setView(btn.dataset.view));
   });
   document.body.addEventListener("click", async (event) => {
+    const monthCard = event.target.closest("[data-month]");
     const edit = event.target.closest("[data-edit]");
     const del = event.target.closest("[data-delete]");
     const archiveAccount = event.target.closest("[data-archive-account]");
     const deleteAccountBtn = event.target.closest("[data-delete-account]");
     const archiveCategory = event.target.closest("[data-archive-category]");
     const deleteCategoryBtn = event.target.closest("[data-delete-category]");
+    if (monthCard) {
+      state.filters.month = monthCard.dataset.month;
+      $("filter-month").value = state.filters.month;
+      setView("transactions");
+      renderAll();
+      return;
+    }
     if (edit) {
       const item = state.transactions.find((row) => row.id === edit.dataset.edit);
       if (item) fillTransactionForm(item);
