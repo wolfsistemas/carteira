@@ -368,6 +368,88 @@
       border-radius: 16px;
     }
 
+    .filter-bar { display: grid; gap: 14px; }
+    .filter-period { display: grid; gap: 10px; }
+
+    .filter-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .filter-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .filter-clear {
+      width: 30px;
+      height: 30px;
+      border-radius: 99px;
+      display: grid;
+      place-items: center;
+      background: var(--panel-2);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--muted);
+      font-size: 16px;
+      line-height: 1;
+      transition: 0.15s ease;
+    }
+    .filter-clear:hover,
+    .filter-clear:active {
+      color: var(--gold-2);
+      border-color: rgba(212, 160, 23, 0.45);
+    }
+
+    .filter-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .chip {
+      padding: 7px 13px;
+      border-radius: 99px;
+      background: var(--bg-soft);
+      border: 1px solid rgba(255,255,255,0.07);
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      transition: 0.15s ease;
+    }
+    .chip:hover { color: var(--ink); border-color: rgba(255,255,255,0.16); }
+    .chip.active {
+      background: rgba(212, 160, 23, 0.14);
+      border-color: rgba(212, 160, 23, 0.5);
+      color: var(--gold-2);
+      box-shadow: 0 4px 14px rgba(212, 160, 23, 0.12);
+    }
+
+    .date-range {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: end;
+      gap: 8px;
+    }
+    .date-field {
+      gap: 4px;
+      font-size: 11px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .date-field input {
+      padding: 11px 12px;
+      font-size: 15px;
+      border-radius: 12px;
+      color-scheme: dark;
+    }
+    .date-sep {
+      color: var(--muted);
+      font-size: 12px;
+      padding-bottom: 13px;
+    }
+
     .month-cards {
       display: grid;
       grid-template-columns: 1fr;
@@ -556,7 +638,12 @@
         padding-bottom: 28px;
       }
       .kpis { grid-template-columns: repeat(4, 1fr); gap: 14px; }
-      .filters { grid-template-columns: repeat(3, 1fr); }
+      .filter-bar {
+        grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+        align-items: start;
+        gap: 22px;
+      }
+      .filters { grid-template-columns: 1fr; }
       .form-grid { grid-template-columns: repeat(2, 1fr); }
       .cards-grid { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
       .tx-row {
@@ -706,25 +793,46 @@
         <div class="topbar">
           <div>
             <h1>Lancamentos</h1>
-            <p class="muted">Lista do mes selecionado</p>
+            <p class="muted">Filtre por periodo, tipo e conta</p>
           </div>
           <button class="btn ghost" id="pdf-btn" type="button">Salvar PDF</button>
         </div>
         <div class="panel">
-          <div class="filters">
-            <label>Mes
-              <input id="filter-month" type="month">
-            </label>
-            <label>Tipo
-              <select id="filter-type">
-                <option value="all">Todos</option>
-                <option value="income">Receitas</option>
-                <option value="expense">Despesas</option>
-              </select>
-            </label>
-            <label>Conta
-              <select id="filter-account"></select>
-            </label>
+          <div class="filter-bar">
+            <div class="filter-period">
+              <div class="filter-head">
+                <span class="filter-title">Periodo</span>
+                <button type="button" class="filter-clear" id="filter-clear" hidden aria-label="Limpar filtro de data" title="Limpar filtro de data">&times;</button>
+              </div>
+              <div class="filter-chips" id="filter-chips">
+                <button type="button" class="chip" data-range="today">Hoje</button>
+                <button type="button" class="chip" data-range="7d">7 Dias</button>
+                <button type="button" class="chip" data-range="30d">30 Dias</button>
+                <button type="button" class="chip" data-range="month">Este Mes</button>
+                <button type="button" class="chip" data-range="all">Tudo</button>
+              </div>
+              <div class="date-range">
+                <label class="date-field">De
+                  <input id="filter-start" type="date">
+                </label>
+                <span class="date-sep">ate</span>
+                <label class="date-field">Ate
+                  <input id="filter-end" type="date">
+                </label>
+              </div>
+            </div>
+            <div class="filters">
+              <label>Tipo
+                <select id="filter-type">
+                  <option value="all">Todos</option>
+                  <option value="income">Receitas</option>
+                  <option value="expense">Despesas</option>
+                </select>
+              </label>
+              <label>Conta
+                <select id="filter-account"></select>
+              </label>
+            </div>
           </div>
           <div id="tx-list" class="tx-list" style="margin-top:16px"></div>
         </div>

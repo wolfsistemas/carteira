@@ -21,7 +21,8 @@ const state = {
   view: "dashboard",
   editingId: null,
   filters: {
-    month: toMonthValue(new Date()),
+    startDate: "",
+    endDate: "",
     type: "all",
     accountId: "all",
   },
@@ -38,11 +39,39 @@ function toMonthValue(date) {
 }
 
 function todayValue() {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
+  return toDateValue(new Date());
+}
+
+function toDateValue(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function addDays(dateValue, days) {
+  const date = new Date(`${dateValue}T00:00:00`);
+  date.setDate(date.getDate() + days);
+  return toDateValue(date);
+}
+
+function rangeFor(preset) {
+  const today = todayValue();
+  switch (preset) {
+    case "today":
+      return { startDate: today, endDate: today };
+    case "7d":
+      return { startDate: addDays(today, -6), endDate: today };
+    case "30d":
+      return { startDate: addDays(today, -29), endDate: today };
+    case "month": {
+      const { start, end } = monthRange(toMonthValue(new Date()));
+      return { startDate: start, endDate: end };
+    }
+    case "all":
+    default:
+      return { startDate: "", endDate: "" };
+  }
 }
 
 function formatMoney(value) {
@@ -103,14 +132,50 @@ function resetRedirectUrl() {
   return url.href;
 }
 
+function dateRangeLabel() {
+  const { startDate, endDate } = state.filters;
+  if (!startDate && !endDate) return "Tudo";
+  if (startDate && endDate && startDate === endDate) return formatDate(startDate);
+  const start = startDate ? formatDate(startDate) : "...";
+  const end = endDate ? formatDate(endDate) : "...";
+  return `${start} a ${end}`;
+}
+
 function filterLabel() {
   const typeMap = { all: "Todos", income: "Receitas", expense: "Despesas" };
   const account =
     state.filters.accountId === "all"
       ? "Todas as contas"
       : accountById(state.filters.accountId)?.name || "Conta";
-  const [year, month] = state.filters.month.split("-");
-  return `Mes ${month}/${year} · ${typeMap[state.filters.type] || "Todos"} · ${account}`;
+  return `Periodo: ${dateRangeLabel()} · ${typeMap[state.filters.type] || "Todos"} · ${account}`;
+}
+
+function activeRangePreset() {
+  for (const preset of ["today", "7d", "30d", "month"]) {
+    const range = rangeFor(preset);
+    if (range.startDate === state.filters.startDate && range.endDate === state.filters.endDate) {
+      return preset;
+    }
+  }
+  return "";
+}
+
+function syncFilterUI() {
+  const { startDate, endDate } = state.filters;
+  if ($("filter-start")) $("filter-start").value = startDate;
+  if ($("filter-end")) $("filter-end").value = endDate;
+  const preset = activeRangePreset();
+  document.querySelectorAll("#filter-chips .chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.range === preset);
+  });
+  const clear = $("filter-clear");
+  if (clear) clear.hidden = !startDate && !endDate;
+}
+
+function setDateRange(startDate, endDate) {
+  state.filters.startDate = startDate || "";
+  state.filters.endDate = endDate || "";
+  renderAll();
 }
 
 function setView(view) {
@@ -144,13 +209,14 @@ function categoryById(id) {
 }
 
 function filteredTransactions() {
-  const { start, end } = monthRange(state.filters.month);
+  const { startDate, endDate, type, accountId } = state.filters;
   return state.transactions.filter((item) => {
-    const inMonth = item.occurred_at >= start && item.occurred_at <= end;
-    const typeOk = state.filters.type === "all" || item.type === state.filters.type;
-    const accountOk =
-      state.filters.accountId === "all" || item.account_id === state.filters.accountId;
-    return inMonth && typeOk && accountOk;
+    const date = item.occurred_at;
+    const startOk = !startDate || date >= startDate;
+    const endOk = !endDate || date <= endDate;
+    const typeOk = type === "all" || item.type === type;
+    const accountOk = accountId === "all" || item.account_id === accountId;
+    return startOk && endOk && typeOk && accountOk;
   });
 }
 
@@ -397,6 +463,7 @@ function renderAll() {
   renderProfile();
   fillAccountSelects();
   fillCategorySelect();
+  syncFilterUI();
   renderKpis();
   renderDashboard();
   renderTransactionRows(
@@ -600,8 +667,9 @@ function exportPdf() {
     });
   }
 
-  const fileMonth = state.filters.month.replace("-", "");
-  doc.save(`relatorio-carteira-${fileMonth}.pdf`);
+  const start = state.filters.startDate || "inicio";
+  const end = state.filters.endDate || "fim";
+  doc.save(`relatorio-carteira-${start}_${end}.pdf`);
 }
 
 async function handleTransactionSubmit(event) {
@@ -779,10 +847,21 @@ function bindEvents() {
   $("account-form").addEventListener("submit", handleAccountSubmit);
   $("category-form").addEventListener("submit", handleCategorySubmit);
   $("profile-form").addEventListener("submit", handleProfileSubmit);
-  $("filter-month").addEventListener("change", (event) => {
-    state.filters.month = event.target.value;
+  $("filter-start").addEventListener("change", (event) => {
+    state.filters.startDate = event.target.value;
     renderAll();
   });
+  $("filter-end").addEventListener("change", (event) => {
+    state.filters.endDate = event.target.value;
+    renderAll();
+  });
+  $("filter-chips").addEventListener("click", (event) => {
+    const chip = event.target.closest(".chip");
+    if (!chip) return;
+    const range = rangeFor(chip.dataset.range);
+    setDateRange(range.startDate, range.endDate);
+  });
+  $("filter-clear").addEventListener("click", () => setDateRange("", ""));
   $("filter-type").addEventListener("change", (event) => {
     state.filters.type = event.target.value;
     renderAll();
@@ -809,8 +888,9 @@ function bindEvents() {
     const archiveCategory = event.target.closest("[data-archive-category]");
     const deleteCategoryBtn = event.target.closest("[data-delete-category]");
     if (monthCard) {
-      state.filters.month = monthCard.dataset.month;
-      $("filter-month").value = state.filters.month;
+      const { start, end } = monthRange(monthCard.dataset.month);
+      state.filters.startDate = start;
+      state.filters.endDate = end;
       setView("transactions");
       renderAll();
       return;
@@ -829,7 +909,7 @@ function bindEvents() {
 
 async function boot() {
   $("tx-date").value = todayValue();
-  $("filter-month").value = state.filters.month;
+  syncFilterUI();
   bindEvents();
   if (!configReady()) {
     showScreen("setup");
