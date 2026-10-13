@@ -361,10 +361,10 @@ function transactionRowHtml(item) {
         <article class="tx-row tx-opening" data-opening="${item.account_id}">
           <div class="tx-dot income" style="background:${item.color}"></div>
           <div class="tx-main">
-            <strong>${item.description}</strong>
+            <strong>Saldo inicial</strong>
             <span>${formatDate(item.occurred_at)} · ${account?.name || "Conta"} · Valor de abertura</span>
           </div>
-          <div class="tx-amount income">${sign} ${formatMoney(item.amount)}</div>
+          <div class="tx-amount income">+ ${formatMoney(item.amount)}</div>
         </article>
       `;
   }
@@ -387,21 +387,17 @@ function transactionRowHtml(item) {
 function openingTransactions() {
   if (state.filters.type === "expense") return [];
   const { startDate, endDate, accountId } = state.filters;
-  const accounts =
-    accountId === "all"
-      ? state.accounts.filter((account) => !account.is_archived)
-      : state.accounts.filter((account) => account.id === accountId);
-  return accounts
-    .filter((account) => Number(account.initial_balance))
+  return state.accounts
+    .filter((account) => !account.is_archived && Number(account.initial_balance))
+    .filter((account) => accountId === "all" || account.id === accountId)
     .map((account) => ({
       id: `opening-${account.id}`,
       is_opening: true,
+      account_id: account.id,
       type: "income",
       amount: Number(account.initial_balance),
       occurred_at: String(account.created_at || "").slice(0, 10),
-      account_id: account.id,
-      category_id: null,
-      description: "Saldo inicial",
+      created_at: account.created_at || "",
       color: account.color,
     }))
     .filter((entry) => {
@@ -411,17 +407,21 @@ function openingTransactions() {
     });
 }
 
-function transactionsForList() {
-  return filteredTransactions()
-    .concat(openingTransactions())
-    .sort((a, b) =>
-      a.occurred_at < b.occurred_at ? 1 : a.occurred_at > b.occurred_at ? -1 : 0
-    );
+function compareEntriesDesc(a, b) {
+  if (a.occurred_at !== b.occurred_at) {
+    return a.occurred_at < b.occurred_at ? 1 : -1;
+  }
+  const aCreated = a.created_at || "";
+  const bCreated = b.created_at || "";
+  if (aCreated === bCreated) return 0;
+  return aCreated < bCreated ? 1 : -1;
 }
 
 function renderTransactionsList() {
   const el = $("tx-list");
-  const items = transactionsForList();
+  const items = filteredTransactions()
+    .concat(openingTransactions())
+    .sort(compareEntriesDesc);
   if (!items.length) {
     el.innerHTML = `<div class="empty">Nenhum lancamento com os filtros atuais.</div>`;
     return;
