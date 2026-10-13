@@ -352,18 +352,11 @@ function renderKpis() {
   $("kpi-result").classList.toggle("negative", totals.income - totals.expense < 0);
 }
 
-function renderTransactionRows(targetId, items, emptyText) {
-  const el = $(targetId);
-  if (!items.length) {
-    el.innerHTML = `<div class="empty">${emptyText}</div>`;
-    return;
-  }
-  el.innerHTML = items
-    .map((item) => {
-      const account = accountById(item.account_id);
-      const category = categoryById(item.category_id);
-      const sign = item.type === "income" ? "+" : "-";
-      return `
+function transactionRowHtml(item) {
+  const account = accountById(item.account_id);
+  const category = categoryById(item.category_id);
+  const sign = item.type === "income" ? "+" : "-";
+  return `
         <article class="tx-row" data-id="${item.id}">
           <div class="tx-dot ${item.type}"></div>
           <div class="tx-main">
@@ -377,8 +370,47 @@ function renderTransactionRows(targetId, items, emptyText) {
           </div>
         </article>
       `;
-    })
-    .join("");
+}
+
+function initialBalanceEntry() {
+  if (state.filters.type === "expense") return null;
+  if (state.filters.accountId === "all") return null;
+  const account = accountById(state.filters.accountId);
+  if (!account) return null;
+  const amount = Number(account.initial_balance);
+  if (!amount) return null;
+  return {
+    label: "Saldo inicial",
+    meta: `${account.name} · Valor de abertura da conta`,
+    amount,
+    color: account.color,
+  };
+}
+
+function openingRowHtml(entry) {
+  return `
+        <article class="tx-row tx-opening">
+          <div class="tx-dot income" style="background:${entry.color}"></div>
+          <div class="tx-main">
+            <strong>${entry.label}</strong>
+            <span>${entry.meta}</span>
+          </div>
+          <div class="tx-amount income">+ ${formatMoney(entry.amount)}</div>
+        </article>
+      `;
+}
+
+function renderTransactionsList() {
+  const el = $("tx-list");
+  const items = filteredTransactions();
+  const opening = initialBalanceEntry();
+  const rows = items.map(transactionRowHtml).join("");
+  const openingHtml = opening ? openingRowHtml(opening) : "";
+  if (!rows && !openingHtml) {
+    el.innerHTML = `<div class="empty">Nenhum lancamento com os filtros atuais.</div>`;
+    return;
+  }
+  el.innerHTML = openingHtml + rows;
 }
 
 function renderDashboard() {
@@ -466,11 +498,7 @@ function renderAll() {
   syncFilterUI();
   renderKpis();
   renderDashboard();
-  renderTransactionRows(
-    "tx-list",
-    filteredTransactions(),
-    "Nenhum lancamento com os filtros atuais."
-  );
+  renderTransactionsList();
   renderAccounts();
   renderCategories();
 }
