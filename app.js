@@ -356,6 +356,18 @@ function transactionRowHtml(item) {
   const account = accountById(item.account_id);
   const category = categoryById(item.category_id);
   const sign = item.type === "income" ? "+" : "-";
+  if (item.is_opening) {
+    return `
+        <article class="tx-row tx-opening" data-opening="${item.account_id}">
+          <div class="tx-dot income" style="background:${item.color}"></div>
+          <div class="tx-main">
+            <strong>${item.description}</strong>
+            <span>${formatDate(item.occurred_at)} · ${account?.name || "Conta"} · Valor de abertura</span>
+          </div>
+          <div class="tx-amount income">${sign} ${formatMoney(item.amount)}</div>
+        </article>
+      `;
+  }
   return `
         <article class="tx-row" data-id="${item.id}">
           <div class="tx-dot ${item.type}"></div>
@@ -372,55 +384,49 @@ function transactionRowHtml(item) {
       `;
 }
 
-function initialBalanceEntry() {
-  if (state.filters.type === "expense") return null;
-  if (state.filters.accountId !== "all") {
-    const account = accountById(state.filters.accountId);
-    if (!account) return null;
-    const amount = Number(account.initial_balance);
-    if (!amount) return null;
-    return {
-      label: "Saldo inicial",
-      meta: `${account.name} · Valor de abertura da conta`,
-      amount,
+function openingTransactions() {
+  if (state.filters.type === "expense") return [];
+  const { startDate, endDate, accountId } = state.filters;
+  const accounts =
+    accountId === "all"
+      ? state.accounts.filter((account) => !account.is_archived)
+      : state.accounts.filter((account) => account.id === accountId);
+  return accounts
+    .filter((account) => Number(account.initial_balance))
+    .map((account) => ({
+      id: `opening-${account.id}`,
+      is_opening: true,
+      type: "income",
+      amount: Number(account.initial_balance),
+      occurred_at: String(account.created_at || "").slice(0, 10),
+      account_id: account.id,
+      category_id: null,
+      description: "Saldo inicial",
       color: account.color,
-    };
-  }
-  const active = state.accounts.filter((account) => !account.is_archived);
-  const amount = active.reduce((sum, account) => sum + Number(account.initial_balance), 0);
-  if (!amount) return null;
-  return {
-    label: "Saldos iniciais",
-    meta: `${active.length} conta(s) · Valor de abertura`,
-    amount,
-    color: "#d4a017",
-  };
+    }))
+    .filter((entry) => {
+      const startOk = !startDate || entry.occurred_at >= startDate;
+      const endOk = !endDate || entry.occurred_at <= endDate;
+      return startOk && endOk;
+    });
 }
 
-function openingRowHtml(entry) {
-  return `
-        <article class="tx-row tx-opening">
-          <div class="tx-dot income" style="background:${entry.color}"></div>
-          <div class="tx-main">
-            <strong>${entry.label}</strong>
-            <span>${entry.meta}</span>
-          </div>
-          <div class="tx-amount income">+ ${formatMoney(entry.amount)}</div>
-        </article>
-      `;
+function transactionsForList() {
+  return filteredTransactions()
+    .concat(openingTransactions())
+    .sort((a, b) =>
+      a.occurred_at < b.occurred_at ? 1 : a.occurred_at > b.occurred_at ? -1 : 0
+    );
 }
 
 function renderTransactionsList() {
   const el = $("tx-list");
-  const items = filteredTransactions();
-  const opening = initialBalanceEntry();
-  const rows = items.map(transactionRowHtml).join("");
-  const openingHtml = opening ? openingRowHtml(opening) : "";
-  if (!rows && !openingHtml) {
+  const items = transactionsForList();
+  if (!items.length) {
     el.innerHTML = `<div class="empty">Nenhum lancamento com os filtros atuais.</div>`;
     return;
   }
-  el.innerHTML = openingHtml + rows;
+  el.innerHTML = items.map(transactionRowHtml).join("");
 }
 
 function renderDashboard() {
