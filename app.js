@@ -374,16 +374,26 @@ function transactionRowHtml(item) {
 
 function initialBalanceEntry() {
   if (state.filters.type === "expense") return null;
-  if (state.filters.accountId === "all") return null;
-  const account = accountById(state.filters.accountId);
-  if (!account) return null;
-  const amount = Number(account.initial_balance);
+  if (state.filters.accountId !== "all") {
+    const account = accountById(state.filters.accountId);
+    if (!account) return null;
+    const amount = Number(account.initial_balance);
+    if (!amount) return null;
+    return {
+      label: "Saldo inicial",
+      meta: `${account.name} · Valor de abertura da conta`,
+      amount,
+      color: account.color,
+    };
+  }
+  const active = state.accounts.filter((account) => !account.is_archived);
+  const amount = active.reduce((sum, account) => sum + Number(account.initial_balance), 0);
   if (!amount) return null;
   return {
-    label: "Saldo inicial",
-    meta: `${account.name} · Valor de abertura da conta`,
+    label: "Saldos iniciais",
+    meta: `${active.length} conta(s) · Valor de abertura`,
     amount,
-    color: account.color,
+    color: "#d4a017",
   };
 }
 
